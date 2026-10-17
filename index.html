@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>小工具箱 · 8 个实用小工具</title>
+<meta name="description" content="纯前端小工具箱：JSON 格式化、Base64 编解码、时间戳转换、文本统计、颜色转换、密码生成、URL 编解码、UUID 生成。">
+<script>
+  (function () {
+    var t;
+    try { t = localStorage.getItem('toolbox-theme'); } catch (e) {}
+    if (!t) {
+      try { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+      catch (e) { t = 'light'; }
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+  /* ============ 主题变量 ============ */
+  :root {
+    color-scheme: light;
+    --bg: #f4f5f9;
+    --panel: #ffffff;
+    --panel-2: #f6f7fb;
+    --text: #151a26;
+    --muted: #6a7488;
+    --border: #e3e6ef;
+    --accent: #5b5bd6;
+    --accent-2: #8f5bd6;
+    --accent-soft: rgba(91, 91, 214, .10);
+    --accent-glow: rgba(91, 91, 214, .26);
+    --ok: #0a8f62;
+    --err: #d93a3f;
+    --shadow: 0 8px 24px rgba(23, 29, 51, .06);
+    --shadow-lg: 0 18px 46px rgba(23, 29, 51, .12);
+    --sidebar: rgba(255, 255, 255, .72);
+    --glow-1: rgba(91, 91, 214, .12);
+    --glow-2: rgba(34, 211, 238, .12);
+    --toast-bg: #1c2233;
+    --toast-text: #ffffff;
+    --radius: 16px;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0e15;
+    --panel: #131824;
+    --panel-2: #1a2030;
+    --text: #e9edf6;
+    --muted: #8b95ab;
+    --border: #242c3e;
+    --accent: #8b8bf5;
+    --accent-2: #b18cf5;
+    --accent-soft: rgba(139, 139, 245, .16);
+    --accent-glow: rgba(139, 139, 245, .24);
+    --ok: #3ddc97;
+    --err: #ff6b6f;
+    --shadow: 0 10px 28px rgba(0, 0, 0, .34);
+    --shadow-lg: 0 20px 50px rgba(0, 0, 0, .5);
+    --sidebar: rgba(19, 24, 36, .72);
+    --glow-1: rgba(91, 91, 214, .3);
+    --glow-2: rgba(34, 211, 238, .16);
+    --toast-bg: #e9edf6;
+    --toast-text: #101521;
+  }
+
+  /* ============ 基础 ============ */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(48rem 32rem at 6% -10%, var(--glow-1), transparent 65%),
+      radial-gradient(42rem 30rem at 98% 2%, var(--glow-2), transparent 70%);
+  }
+  ::selection { background: var(--accent-soft); color: var(--text); }
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  input, textarea, select, button { font: inherit; color: inherit; }
+
+  /* ============ 布局 ============ */
+  .app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 252px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    height: 100vh;
+    padding: 22px 14px 18px;
+    border-right: 1px solid var(--border);
+    background: var(--sidebar);
+    backdrop-filter: blur(16px);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 2px 8px 12px;
+  }
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: #fff;
+    box-shadow: 0 8px 20px var(--accent-glow);
+  }
+  .brand-mark svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .brand-text strong { display: block; font-size: 15px; letter-spacing: -.01em; }
+  .brand-text span { display: block; font-size: 10px; font-weight: 600; letter-spacing: .18em; color: var(--muted); }
+
+  .nav-label {
+    margin: 0 0 2px;
+    padding: 0 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: .8;
+  }
+  .nav { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; flex: 1; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: background .16s, color .16s, border-color .16s;
+  }
+  .nav-item svg {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .nav-item:hover { background: var(--panel-2); color: var(--text); }
+  .nav-item.active {
+    background: var(--accent-soft);
+    border-color: var(--border);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .nav-item.active svg { color: var(--accent); }
+  .side-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 10px 4px;
+    border-top: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .side-foot .live { display: flex; align-items: center; gap: 7px; }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 3px rgba(15, 157, 107, .16);
+  }
+  .side-kbd { margin: 0; font-size: 11px; opacity: .85; }
+  .side-kbd kbd {
+    display: inline-block;
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-2);
+    font-family: var(--mono);
+    font-size: 10.5px;
+  }
+
+  .main { min-width: 0; padding: 0 clamp(16px, 3.6vw, 40px); }
+  .main-inner { max-width: 1120px; margin: 0 auto; padding-bottom: 56px; }
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 34px 0 22px;
+  }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .eyebrow .sep { opacity: .45; }
+  #crumb { color: var(--accent); letter-spacing: .1em; }
+  h1 {
+    margin: 0;
+    font-size: clamp(24px, 3vw, 30px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -.02em;
+  }
+  .sub { margin: 8px 0 0; max-width: 66ch; font-size: 13.5px; color: var(--muted); }
+  .top-actions { display: flex; gap: 8px; flex: none; padding-top: 4px; }
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--muted);
+    cursor: pointer;
+    transition: .18s;
+    box-shadow: var(--shadow);
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .icon-moon { display: none; }
+  :root[data-theme="dark"] .icon-sun { display: none; }
+  :root[data-theme="dark"] .icon-moon { display: block; }
+
+  .tool { display: none; }
+  .tool.active { display: block; animation: toolIn .26s ease both; }
+  .tool > * + * { margin-top: 16px; }
+  @keyframes toolIn {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .card {
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .card-title { margin: 0 0 12px; font-size: 14.5px; font-weight: 650; letter-spacing: -.005em; }
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+  .spacer { flex: 1 1 auto; }
+  .hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .pane-title { font-weight: 600; color: var(--text); }
+  .pane-actions { display: flex; gap: 4px; }
+
+  /* ============ 控件 ============ */
+  textarea, .text-input, select {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    outline: none;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 14px;
+    transition: border-color .16s, box-shadow .16s;
+  }
+  textarea {
+    min-height: 180px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+  textarea.code, .uuid-row span {
+    font-family: var(--mono);
+    font-size: 13px;
+    tab-size: 2;
+  }
+  #jsonInput, #jsonOutput { min-height: 300px; }
+  #b64Input, #b64Output { min-height: 200px; }
+  #urlInput, #urlOutput { min-height: 150px; }
+  .text-area { min-height: 210px; font-size: 14.5px; }
+  textarea:focus, .text-input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  textarea::placeholder, input::placeholder { color: var(--muted); opacity: .65; }
+  textarea[readonly] { background: var(--panel-2); }
+  select { width: auto; padding: 6px 10px; font-size: 12.5px; cursor: pointer; }
+  .inline-field { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  input[type="color"] {
+    width: 100%;
+    height: 46px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel-2);
+    cursor: pointer;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9px; }
+  input[type="datetime-local"] { color-scheme: inherit; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 13.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: .16s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .btn:active { transform: none; }
+  .btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .btn-primary {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 8px 20px var(--accent-glow);
+  }
+  .btn-primary:hover { color: #fff; filter: brightness(1.07); }
+  .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn-ghost:hover { background: var(--panel-2); color: var(--text); border-color: transparent; }
+  .btn-sm { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+  .btn:disabled { opacity: .4; pointer-events: none; }
+
+  .seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--panel-2);
+  }
+  .seg button {
+    padding: 6px 15px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: .16s;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button.active { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+
+  .check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 19px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--muted);
+    word-break: break-word;
+  }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+
+  /* ============ 时间戳 ============ */
+  .now-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: linear-gradient(135deg, var(--accent-soft), transparent 62%), var(--panel);
+  }
+  .now-label { margin: 0 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .now-time {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: clamp(30px, 4.6vw, 40px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: .01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .now-date { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .now-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: .16s;
+  }
+  .chip span { font-size: 10.5px; letter-spacing: .04em; color: var(--muted); }
+  .chip b { font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+  .kv { display: grid; gap: 7px; margin-top: 14px; }
+  .kv-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 11px;
+    border-radius: 9px;
+    background: var(--panel-2);
+    font-size: 12.5px;
+  }
+  .kv-row span { flex: none; color: var(--muted); }
+  .kv-row code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    text-align: right;
+    word-break: break-all;
+  }
+  .kv-row[data-value] { cursor: pointer; transition: background .15s; }
+  .kv-row[data-value]:hover { background: var(--accent-soft); }
+
+  /* ============ 文本统计 ============ */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .stat { padding: 12px 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); }
+  .stat b { display: block; font-size: 21px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11.5px; color: var(--muted); }
+
+  /* ============ 颜色 ============ */
+  .color-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 26px;
+    min-height: 190px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    transition: background .2s, color .2s;
+  }
+  .swatch-hex { font-family: var(--mono); font-size: clamp(22px, 3vw, 28px); font-weight: 700; letter-spacing: .02em; }
+  .swatch-sample { font-size: 14px; opacity: .82; }
+  .color-controls { display: grid; gap: 12px; align-content: start; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .color-values {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .color-val {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--panel-2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: .16s;
+  }
+  .color-val span { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--muted); }
+  .color-val code { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  .color-val:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .palette-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 18px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .palette-head .hint { margin: 0; font-weight: 400; }
+  .palette { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px; }
+  .palette button {
+    height: 46px;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .palette button:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .palette button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ============ 密码 ============ */
+  .pwd-out {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel-2);
+  }
+  .pwd-out code {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: clamp(14px, 2.1vw, 18px);
+    line-height: 1.5;
+    letter-spacing: .03em;
+    word-break: break-all;
+  }
+  .pwd-out .icon-btn { width: 34px; height: 34px; border-radius: 9px; box-shadow: none; }
+  .strength { height: 6px; margin-top: 14px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+  .strength i { display: block; width: 0; height: 100%; border-radius: 99px; background: var(--accent); transition: width .3s ease, background .3s ease; }
+  #pwdHint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+  .pwd-controls { display: grid; gap: 16px; margin-top: 18px; }
+  .range-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--muted); }
+  .range-field b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+
+  /* ============ UUID ============ */
+  .uuid-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  .uuid-list { display: grid; gap: 7px; max-height: 340px; margin-top: 15px; overflow-y: auto; }
+  .uuid-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel-2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .uuid-row span { flex: 1; word-break: break-all; }
+  .uuid-row svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .uuid-row:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .uuid-row:hover svg { stroke: var(--accent); }
+
+  .page-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 18px;
+    margin-top: 34px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    z-index: 60;
+    padding: 10px 18px;
+    border-radius: 99px;
+    background: var(--toast-bg);
+    color: var(--toast-text);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translate(-50%, 16px);
+    pointer-events: none;
+    transition: opacity .22s ease, transform .22s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--err); color: #fff; }
+
+  /* ============ 响应式 ============ */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .sidebar {
+      position: static;
+      height: auto;
+      gap: 10px;
+      padding: 14px 14px 12px;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { padding: 0 2px 6px; }
+    .nav-label, .side-foot { display: none; }
+    .nav {
+      flex-direction: row;
+      gap: 6px;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .nav-item { flex: none; padding: 8px 12px; white-space: nowrap; }
+    .nav-item span { font-size: 13px; }
+    .main { padding: 0 16px; }
+    .topbar { padding: 22px 0 16px; }
+    .split, .color-hero { grid-template-columns: 1fr; }
+    .palette { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    #jsonInput, #jsonOutput { min-height: 240px; }
+  }
+  @media (max-width: 560px) {
+    .now-chips { width: 100%; }
+    .chip { flex: 1; }
+    .palette { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .btn { padding: 8px 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+      </div>
+      <div class="brand-text">
+        <strong>小工具箱</strong>
+        <span>TOOLBOX</span>
+      </div>
+    </div>
+
+    <p class="nav-label">工具</p>
+    <nav class="nav" aria-label="工具导航">
+      <button type="button" class="nav-item active" data-tool="json" data-label="JSON" data-title="JSON 格式化" data-desc="美化、压缩并校验 JSON，出错时定位到行列。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>
+        <span>JSON 格式化</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="base64" data-label="BASE64" data-title="Base64 编解码" data-desc="文本与 Base64 互转，支持 URL 安全字符集。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+        <span>Base64</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="time" data-label="TIME" data-title="时间戳转换" data-desc="时间戳与日期互转，自动识别秒与毫秒。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span>时间戳</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="text" data-label="TEXT" data-title="文本统计" data-desc="实时统计字数、行数、字节数与阅读时长。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>
+        <span>文本统计</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="color" data-label="COLOR" data-title="颜色转换" data-desc="HEX / RGB / HSL / CMYK 互换，生成同色系配色。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".6" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".6" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".6" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8Z"/></svg>
+        <span>颜色转换</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="password" data-label="SECURE" data-title="密码生成" data-desc="在本地生成高强度随机密码，可自定义字符集。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>密码生成</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="url" data-label="URL" data-title="URL 编解码" data-desc="编解码 URL 组件，解析 URL 结构与查询参数。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>URL 编解码</span>
+      </button>
+      <button type="button" class="nav-item" data-tool="uuid" data-label="UUID" data-title="UUID 生成" data-desc="批量生成 v4 UUID，大小写与连字符可选。">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+        <span>UUID 生成</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="live"><span class="dot"></span><span>纯本地运行 · 数据不上传</span></div>
+      <p class="side-kbd"><kbd>1</kbd>–<kbd>8</kbd> 快速切换工具</p>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-inner">
+      <header class="topbar">
+        <div class="titles">
+          <p class="eyebrow">TOOLBOX<span class="sep">/</span><span id="crumb">JSON</span></p>
+          <h1 id="pageTitle">JSON 格式化</h1>
+          <p class="sub" id="pageDesc">美化、压缩并校验 JSON，出错时定位到行列。</p>
+        </div>
+        <div class="top-actions">
+          <button type="button" class="icon-btn" id="themeBtn" title="切换明暗主题" aria-label="切换明暗主题">
+            <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- ================= JSON ================= -->
+        <section class="tool active" id="tool-json" aria-label="JSON 格式化">
+          <div class="split">
+            <div class="card">
+              <div class="pane-head">
+                <span class="pane-title">输入</span>
+                <div class="pane-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="jsonSample">示例</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="jsonClear">清空</button>
+                </div>
+              </div>
+              <textarea id="jsonInput" class="code" spellcheck="false" placeholder='{"hello": "world"}' aria-label="JSON 输入"></textarea>
+              <div class="row">
+                <label class="inline-field">缩进
+                  <select id="jsonIndent">
+                    <option value="2" selected>2 空格</option>
+                    <option value="4">4 空格</option>
+                    <option value="tab">Tab</option>
+                  </select>
+                </label>
+                <span class="spacer"></span>
+                <button type="button" class="btn btn-sm active" id="jsonFormat">格式化</button>
+                <button type="button" class="btn btn-sm" id="jsonMinify">压缩</button>
+              </div>
+              <div class="status" id="jsonStatus">等待输入 JSON…</div>
+            </div>
+            <div class="card">
+              <div class="pane-head">
+                <span class="pane-title">结果</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="jsonCopy" disabled>复制</button>
+              </div>
+              <textarea id="jsonOutput" class="code" readonly spellcheck="false" placeholder="格式化结果会显示在这里" aria-label="JSON 输出"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= Base64 ================= -->
+        <section class="tool" id="tool-base64" aria-label="Base64 编解码">
+          <div class="card">
+            <div class="seg" id="b64Mode" role="tablist" aria-label="编码或解码">
+              <button type="button" class="active" data-mode="encode" role="tab" aria-selected="true">编码</button>
+              <button type="button" data-mode="decode" role="tab" aria-selected="false">解码</button>
+            </div>
+            <div class="split">
+              <div>
+                <div class="pane-head"><span class="pane-title" id="b64InLabel">原文</span></div>
+                <textarea id="b64Input" spellcheck="false" placeholder="输入要编码的文本…" aria-label="Base64 输入"></textarea>
+              </div>
+              <div>
+                <div class="pane-head">
+                  <span class="pane-title" id="b64OutLabel">Base64</span>
+                  <button type="button" class="btn btn-ghost btn-sm" id="b64Copy">复制</button>
+                </div>
+                <textarea id="b64Output" class="code" readonly spellcheck="false" placeholder="结果会显示在这里" aria-label="Base64 输出"></textarea>
+              </div>
+            </div>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="b64UrlSafe"> URL 安全（-_ 并去掉 =）</label>
+              <span class="spacer"></span>
+              <button type="button" class="btn btn-sm" id="b64Swap">↔ 交换</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="b64Clear">清空</button>
+            </div>
+            <div class="status" id="b64Status"></div>
+          </div>
+        </section>
+
+        <!-- ================= 时间戳 ================= -->
+        <section class="tool" id="tool-time" aria-label="时间戳转换">
+          <div class="card now-card">
+            <div>
+              <p class="now-label">当前时间</p>
+              <p class="now-time" id="nowTime">--:--:--</p>
+              <p class="now-date" id="nowDate">加载中…</p>
+            </div>
+            <div class="now-chips">
+              <button type="button" class="chip" id="nowSecChip" title="点击复制">
+                <span>Unix 秒</span><b id="nowSec">—</b>
+              </button>
+              <button type="button" class="chip" id="nowMsChip" title="点击复制">
+                <span>Unix 毫秒</span><b id="nowMs">—</b>
+              </button>
+            </div>
+          </div>
+          <div class="split">
+            <div class="card">
+              <h3 class="card-title">时间戳 → 日期</h3>
+              <input id="tsInput" class="text-input" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="1735689600 或 1735689600000" aria-label="时间戳">
+              <p class="hint">自动识别秒 / 毫秒（10 位数字按秒处理），点击结果行可复制。</p>
+              <div class="kv" id="tsResult"></div>
+            </div>
+            <div class="card">
+              <h3 class="card-title">日期 → 时间戳</h3>
+              <input type="datetime-local" step="1" id="dtInput" class="text-input" aria-label="日期时间">
+              <p class="hint">按浏览器本地时区计算，点击结果行可复制。</p>
+              <div class="kv" id="dtResult"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= 文本统计 ================= -->
+        <section class="tool" id="tool-text" aria-label="文本统计">
+          <div class="card">
+            <div class="pane-head">
+              <span class="pane-title">文本</span>
+              <button type="button" class="btn btn-ghost btn-sm" id="textClear">清空</button>
+            </div>
+            <textarea id="textInput" class="text-area" placeholder="在这里输入或粘贴文本，统计结果会实时更新…" aria-label="待统计文本"></textarea>
+            <div class="stats" id="textStats"></div>
+            <div class="row">
+              <span class="hint" style="margin:0">中英文混排都能正确统计，阅读时长按中文 300 字 / 分钟估算。</span>
+              <span class="spacer"></span>
+              <button type="button" class="btn btn-sm" id="textCopyStats">复制统计结果</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= 颜色 ================= -->
+        <section class="tool" id="tool-color" aria-label="颜色转换">
+          <div class="card">
+            <div class="color-hero">
+              <div class="swatch" id="colorSwatch">
+                <span class="swatch-hex" id="swatchHex">#5B5BD6</span>
+                <span class="swatch-sample">Aa 文字预览 · Text sample</span>
+              </div>
+              <div class="color-controls">
+                <label class="field">取色器
+                  <input type="color" id="colorPicker" value="#5b5bd6">
+                </label>
+                <label class="field">HEX
+                  <input id="colorHex" class="text-input" value="#5B5BD6" spellcheck="false" autocomplete="off" aria-label="十六进制颜色">
+                </label>
+                <p class="hint" id="colorContrast"></p>
+              </div>
+            </div>
+            <div class="color-values" id="colorValues"></div>
+            <div class="palette-head"><span>同色系</span><span class="hint">点击色块使用该颜色</span></div>
+            <div class="palette" id="colorPalette"></div>
+          </div>
+        </section>
+
+        <!-- ================= 密码 ================= -->
+        <section class="tool" id="tool-password" aria-label="密码生成">
+          <div class="card">
+            <div class="pwd-out">
+              <code id="pwdValue">—</code>
+              <button type="button" class="icon-btn" id="pwdCopy" title="复制密码" aria-label="复制密码">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+              <button type="button" class="btn btn-sm" id="pwdRegen">重新生成</button>
+            </div>
+            <div class="strength"><i id="pwdBar"></i></div>
+            <p id="pwdHint">强度 —</p>
+            <div class="pwd-controls">
+              <label class="range-field">
+                <span>长度 <b id="pwdLenOut">20</b></span>
+                <input type="range" id="pwdLen" min="4" max="64" value="20">
+              </label>
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="pwdLower" checked>小写字母 a-z</label>
+                <label class="check"><input type="checkbox" id="pwdUpper" checked>大写字母 A-Z</label>
+                <label class="check"><input type="checkbox" id="pwdDigit" checked>数字 0-9</label>
+                <label class="check"><input type="checkbox" id="pwdSymbol">符号 !@#$%</label>
+                <label class="check"><input type="checkbox" id="pwdNoAmbiguous" checked>排除易混淆字符</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= URL ================= -->
+        <section class="tool" id="tool-url" aria-label="URL 编解码">
+          <div class="card">
+            <div class="seg" id="urlMode" role="tablist" aria-label="编码或解码">
+              <button type="button" class="active" data-mode="encode" role="tab" aria-selected="true">编码</button>
+              <button type="button" data-mode="decode" role="tab" aria-selected="false">解码</button>
+            </div>
+            <div class="split">
+              <div>
+                <div class="pane-head"><span class="pane-title" id="urlInLabel">原文</span></div>
+                <textarea id="urlInput" spellcheck="false" placeholder="要编码的文本或参数值…" aria-label="URL 编码输入"></textarea>
+              </div>
+              <div>
+                <div class="pane-head">
+                  <span class="pane-title" id="urlOutLabel">编码结果</span>
+                  <button type="button" class="btn btn-ghost btn-sm" id="urlCopy">复制</button>
+                </div>
+                <textarea id="urlOutput" class="code" readonly spellcheck="false" placeholder="结果会显示在这里" aria-label="URL 编码输出"></textarea>
+              </div>
+            </div>
+            <div class="row">
+              <button type="button" class="btn btn-sm" id="urlSwap">↔ 交换</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="urlClear">清空</button>
+              <span class="spacer"></span>
+              <label class="check"><input type="checkbox" id="urlPlus"> 空格转 +</label>
+            </div>
+            <div class="status" id="urlStatus"></div>
+            <p class="hint">使用 encodeURIComponent 按组件编码，适合参数值；整条 URL 的结构请用下方解析器。</p>
+          </div>
+          <div class="split">
+            <div class="card">
+              <h3 class="card-title">URL 解析</h3>
+              <input id="urlParse" class="text-input" spellcheck="false" autocomplete="off" aria-label="待解析 URL" placeholder="https://example.com/path?q=hello">
+              <div class="kv" id="urlParts"></div>
+            </div>
+            <div class="card">
+              <h3 class="card-title">查询参数</h3>
+              <div class="kv" id="urlQuery"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= UUID ================= -->
+        <section class="tool" id="tool-uuid" aria-label="UUID 生成">
+          <div class="card">
+            <div class="uuid-controls">
+              <label class="inline-field" style="font-size:13px">数量
+                <input type="number" id="uuidCount" class="text-input" min="1" max="50" value="5" style="width:76px;padding:7px 9px">
+              </label>
+              <label class="check"><input type="checkbox" id="uuidUpper">大写</label>
+              <label class="check"><input type="checkbox" id="uuidNoHyphen">去掉连字符</label>
+              <span class="spacer"></span>
+              <button type="button" class="btn btn-sm" id="uuidCopyAll">复制全部</button>
+              <button type="button" class="btn btn-primary btn-sm" id="uuidGen">生成</button>
+            </div>
+            <div class="uuid-list" id="uuidList"></div>
+            <p class="hint">使用 crypto.randomUUID / crypto.getRandomValues 生成 RFC 4122 v4 UUID，点击任意一行即可复制。</p>
+          </div>
+        </section>
+      </div>
+
+      <footer class="page-foot">
+        <span>小工具箱 · 8 个工具 · HTML / CSS / 原生 JS</span>
+        <span>所有计算都在浏览器本地完成，不会上传任何数据。</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px;text-align:center">这个页面需要启用 JavaScript 才能使用工具。</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= 通用工具函数 ================= */
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+  var esc = function (s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var enc = new TextEncoder();
+  var utf8Decode = new TextDecoder('utf-8', { fatal: true });
+  var p2 = function (n) { return String(n).padStart(2, '0'); };
+  var toastEl = $('#toast');
+  var toastTimer = null;
+
+  function toast(msg, type) {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show' + (type === 'err' ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.className = 'toast'; }, 1800);
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-999px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function copy(text) {
+    if (text === undefined || text === null || text === '') {
+      toast('没有可复制的内容', 'err');
+      return;
+    }
+    text = String(text);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast('已复制到剪贴板');
+      }, function () {
+        var ok = legacyCopy(text);
+        toast(ok ? '已复制到剪贴板' : '复制失败，请手动选择', ok ? 'ok' : 'err');
+      });
+      return;
+    }
+    if (legacyCopy(text)) toast('已复制到剪贴板');
+    else toast('复制失败，请手动选择', 'err');
+  }
+
+  function debounce(fn, ms) {
+    var t;
+    return function () {
+      var args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(null, args); }, ms);
+    };
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+  }
+
+  function setStatus(el, type, text) {
+    el.className = 'status' + (type ? ' ' + type : '');
+    el.textContent = text;
+  }
+
+  function setDisabled(sel, disabled) {
+    var el = $(sel);
+    if (el) el.disabled = disabled;
+  }
+
+  function kvRow(label, value, copyable) {
+    var attr = copyable === false ? '' : ' data-value="' + esc(value) + '"';
+    return '<div class="kv-row"' + attr + '><span>' + esc(label) + '</span><code>' + esc(value) + '</code></div>';
+  }
+
+  /* 点击带 data-value 的元素即复制 */
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-value]');
+    if (el && el.dataset.value) copy(el.dataset.value);
+  });
+
+  /* ================= 主题 ================= */
+  $('#themeBtn').addEventListener('click', function () {
+    var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('toolbox-theme', next); } catch (e) {}
+  });
+
+  /* ================= 导航 ================= */
+  var navItems = $$('.nav-item');
+  var pageTitle = $('#pageTitle');
+  var pageDesc = $('#pageDesc');
+  var crumb = $('#crumb');
+
+  function activateTool(name, remember) {
+    var item = navItems.filter(function (b) { return b.dataset.tool === name; })[0];
+    if (!item) return;
+    navItems.forEach(function (b) {
+      var on = b === item;
+      b.classList.toggle('active', on);
+      if (on) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    $$('.tool').forEach(function (s) { s.classList.toggle('active', s.id === 'tool-' + name); });
+    pageTitle.textContent = item.dataset.title;
+    pageDesc.textContent = item.dataset.desc;
+    crumb.textContent = item.dataset.label;
+    document.title = item.dataset.title + ' · 小工具箱';
+    if (remember !== false) {
+      try { localStorage.setItem('toolbox-tool', name); } catch (e) {}
+      if (history.replaceState) history.replaceState(null, '', '#' + name);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  navItems.forEach(function (b) {
+    b.addEventListener('click', function () { activateTool(b.dataset.tool); });
+  });
+
+  /* 数字键 1-8 快速切换 */
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    var n = Number(e.key);
+    if (Number.isInteger(n) && n >= 1 && n <= navItems.length) activateTool(navItems[n - 1].dataset.tool);
+  });
+
+  /* ================= 1. JSON ================= */
+  var JSON_SAMPLE = JSON.stringify({
+    name: '小工具箱',
+    version: '1.0.0',
+    tools: ['JSON 格式化', 'Base64 编解码', '时间戳转换'],
+    openSource: true,
+    stars: 128,
+    author: { name: 'Hello World', email: 'hello@example.com' },
+    tags: ['前端', '纯本地', '无依赖']
+  }, null, 2);
+
+  (function initJson() {
+    var input = $('#jsonInput');
+    var output = $('#jsonOutput');
+    var status = $('#jsonStatus');
+    var indentSel = $('#jsonIndent');
+    var mode = 'pretty';
+
+    function syncModeButtons() {
+      $('#jsonFormat').classList.toggle('active', mode === 'pretty');
+      $('#jsonMinify').classList.toggle('active', mode === 'min');
+    }
+
+    function update() {
+      var raw = input.value;
+      if (!raw.trim()) {
+        output.value = '';
+        setStatus(status, '', '等待输入 JSON…');
+        setDisabled('#jsonCopy', true);
+        return;
+      }
+      try {
+        var data = JSON.parse(raw);
+        var indent = indentSel.value === 'tab' ? '\t' : Number(indentSel.value);
+        output.value = mode === 'pretty' ? JSON.stringify(data, null, indent) : JSON.stringify(data);
+        var lines = output.value.split('\n').length;
+        setStatus(status, 'ok', '✓ 有效 JSON · ' + lines + ' 行 · ' + fmtBytes(enc.encode(output.value).length));
+        setDisabled('#jsonCopy', false);
+      } catch (err) {
+        output.value = '';
+        setDisabled('#jsonCopy', true);
+        var where = '';
+        var m = /position\s+(\d+)/i.exec(err.message);
+        if (m) {
+          var pos = Number(m[1]);
+          var before = raw.slice(0, pos);
+          var line = before.split('\n').length;
+          var col = pos - before.lastIndexOf('\n');
+          where = '第 ' + line + ' 行第 ' + col + ' 列 · ';
+        }
+        setStatus(status, 'err', '✕ ' + where + err.message);
+      }
+    }
+
+    $('#jsonFormat').addEventListener('click', function () { mode = 'pretty'; syncModeButtons(); update(); });
+    $('#jsonMinify').addEventListener('click', function () { mode = 'min'; syncModeButtons(); update(); });
+    indentSel.addEventListener('change', update);
+    input.addEventListener('input', debounce(update, 160));
+    input.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); update(); }
+    });
+    $('#jsonCopy').addEventListener('click', function () { copy(output.value); });
+    $('#jsonSample').addEventListener('click', function () {
+      input.value = JSON_SAMPLE;
+      mode = 'pretty';
+      syncModeButtons();
+      update();
+    });
+    $('#jsonClear').addEventListener('click', function () {
+      input.value = '';
+      update();
+      input.focus();
+    });
+
+    input.value = JSON_SAMPLE;
+    syncModeButtons();
+    update();
+  })();
+
+  /* ================= 2. Base64 ================= */
+  (function initBase64() {
+    var input = $('#b64Input');
+    var output = $('#b64Output');
+    var status = $('#b64Status');
+    var urlSafe = $('#b64UrlSafe');
+    var inLabel = $('#b64InLabel');
+    var outLabel = $('#b64OutLabel');
+    var mode = 'encode';
+
+    function encode(str) {
+      var bytes = enc.encode(str);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+      var out = btoa(bin);
+      if (urlSafe.checked) out = out.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      return out;
+    }
+
+    function decode(str) {
+      var s = str.replace(/\s+/g, '');
+      if (!s) return '';
+      s = s.replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      var bin = atob(s);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      return utf8Decode.decode(bytes);
+    }
+
+    function syncLabels() {
+      var encoding = mode === 'encode';
+      inLabel.textContent = encoding ? '原文' : 'Base64';
+      outLabel.textContent = encoding ? 'Base64' : '原文';
+      input.placeholder = encoding ? '输入要编码的文本…' : '粘贴 Base64 字符串…';
+      $$('#b64Mode button').forEach(function (b) {
+        var on = b.dataset.mode === mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+
+    function update() {
+      var raw = input.value;
+      if (!raw) {
+        output.value = '';
+        setStatus(status, '', '等待输入…');
+        return;
+      }
+      try {
+        var out = mode === 'encode' ? encode(raw) : decode(raw);
+        output.value = out;
+        setStatus(status, 'ok', '✓ ' + (mode === 'encode' ? '编码' : '解码') + '完成 · 输入 ' + raw.length + ' 字符 · 输出 ' + out.length + ' 字符');
+      } catch (err) {
+        output.value = '';
+        setStatus(status, 'err', '✕ 无法解码：内容不是有效的 Base64，或不是 UTF-8 文本');
+      }
+    }
+
+    var setMode = function (next) {
+      mode = next;
+      syncLabels();
+      update();
+    };
+
+    $$('#b64Mode button').forEach(function (b) {
+      b.addEventListener('click', function () { setMode(b.dataset.mode); });
+    });
+    input.addEventListener('input', debounce(update, 120));
+    urlSafe.addEventListener('change', update);
+    $('#b64Copy').addEventListener('click', function () { copy(output.value); });
+    $('#b64Swap').addEventListener('click', function () {
+      if (!output.value) return;
+      input.value = output.value;
+      setMode(mode === 'encode' ? 'decode' : 'encode');
+    });
+    $('#b64Clear').addEventListener('click', function () {
+      input.value = '';
+      update();
+      input.focus();
+    });
+
+    input.value = '你好，Base64 👋 Hello World!';
+    syncLabels();
+    update();
+  })();
+
+  /* ================= 3. 时间戳 ================= */
+  (function initTime() {
+    var nowTime = $('#nowTime');
+    var nowDate = $('#nowDate');
+    var nowSec = $('#nowSec');
+    var nowMs = $('#nowMs');
+    var tsInput = $('#tsInput');
+    var tsResult = $('#tsResult');
+    var dtInput = $('#dtInput');
+    var dtResult = $('#dtResult');
+    var week = '日一二三四五六';
+
+    function fmtLocal(d) {
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' +
+        p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+    }
+    function fmtUtc(d) {
+      return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate()) + ' ' +
+        p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) + ':' + p2(d.getUTCSeconds()) + ' UTC';
+    }
+    function relativeFrom(ms) {
+      var diff = Date.now() - ms;
+      var abs = Math.abs(diff);
+      if (abs < 1000) return '刚刚';
+      var units = [
+        [31536000000, '年'], [2592000000, '个月'], [604800000, '周'],
+        [86400000, '天'], [3600000, '小时'], [60000, '分钟'], [1000, '秒']
+      ];
+      for (var i = 0; i < units.length; i += 1) {
+        if (abs >= units[i][0]) {
+          var v = Math.floor(abs / units[i][0]);
+          return diff >= 0 ? v + ' ' + units[i][1] + '前' : v + ' ' + units[i][1] + '后';
+        }
+      }
+      return '刚刚';
+    }
+
+    function tick() {
+      var d = new Date();
+      nowTime.textContent = p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+      nowDate.textContent = d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日 · 星期' + week[d.getDay()];
+      nowSec.textContent = String(Math.floor(d.getTime() / 1000));
+      nowMs.textContent = String(d.getTime());
+    }
+
+    function parseTimestamp(raw) {
+      var s = raw.replace(/[,\s_]/g, '');
+      if (!/^-?\d+$/.test(s)) return null;
+      var n = Number(s);
+      if (!Number.isFinite(n)) return null;
+      var abs = Math.abs(n);
+      var ms;
+      var unit;
+      if (abs < 1e11) { ms = n * 1000; unit = '秒'; } else { ms = n; unit = '毫秒'; }
+      var d = new Date(ms);
+      if (isNaN(d.getTime())) return null;
+      return { date: d, unit: unit };
+    }
+
+    function updateTs() {
+      var raw = tsInput.value.trim();
+      if (!raw) {
+        tsResult.innerHTML = kvRow('提示', '输入 10 位（秒）或 13 位（毫秒）时间戳', false);
+        return;
+      }
+      var parsed = parseTimestamp(raw);
+      if (!parsed) {
+        tsResult.innerHTML = kvRow('状态', '无法识别，请输入纯数字时间戳', false);
+        return;
+      }
+      var d = parsed.date;
+      tsResult.innerHTML = [
+        kvRow('识别单位', parsed.unit),
+        kvRow('本地时间', fmtLocal(d)),
+        kvRow('UTC 时间', fmtUtc(d)),
+        kvRow('ISO 8601', d.toISOString()),
+        kvRow('星期', '星期' + week[d.getDay()]),
+        kvRow('相对现在', relativeFrom(d.getTime()))
+      ].join('');
+    }
+
+    function updateDt() {
+      if (!dtInput.value) {
+        dtResult.innerHTML = kvRow('提示', '选择一个日期时间', false);
+        return;
+      }
+      var d = new Date(dtInput.value);
+      if (isNaN(d.getTime())) {
+        dtResult.innerHTML = kvRow('状态', '无法解析该日期', false);
+        return;
+      }
+      dtResult.innerHTML = [
+        kvRow('秒级时间戳', String(Math.floor(d.getTime() / 1000))),
+        kvRow('毫秒时间戳', String(d.getTime())),
+        kvRow('ISO 8601', d.toISOString())
+      ].join('');
+    }
+
+    function localInputValue(d) {
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' +
+        p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+    }
+
+    $('#nowSecChip').addEventListener('click', function () { copy(nowSec.textContent); });
+    $('#nowMsChip').addEventListener('click', function () { copy(nowMs.textContent); });
+    tsInput.addEventListener('input', debounce(updateTs, 120));
+    dtInput.addEventListener('input', updateDt);
+
+    tick();
+    setInterval(tick, 1000);
+    updateTs();
+    dtInput.value = localInputValue(new Date());
+    updateDt();
+  })();
+
+  /* ================= 4. 文本统计 ================= */
+  (function initText() {
+    var input = $('#textInput');
+    var statsEl = $('#textStats');
+    var linesCache = [];
+
+    function update() {
+      var text = input.value;
+      var chars = Array.from(text).length;
+      var noSpace = Array.from(text.replace(/\s/g, '')).length;
+      var han = (text.match(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u{20000}-\u{2FA1F}]/gu) || []).length;
+      var words = (text.match(/[A-Za-z0-9_]+(?:['’\-][A-Za-z0-9_]+)*/g) || []).length;
+      var digits = (text.match(/[0-9]/g) || []).length;
+      var lines = text ? text.split('\n').length : 0;
+      var paras = text.split(/\n\s*\n/).filter(function (p) { return p.trim(); }).length;
+      var bytes = enc.encode(text).length;
+      var readMin = text.trim() ? Math.max(1, Math.ceil((han + words) / 300)) : 0;
+
+      var items = [
+        ['字符数（含空格）', chars],
+        ['字符数（不含空白）', noSpace],
+        ['中文字符', han],
+        ['英文单词', words],
+        ['数字字符', digits],
+        ['行数', lines],
+        ['段落数', paras],
+        ['UTF-8 大小', fmtBytes(bytes)],
+        ['预计阅读', readMin + ' 分钟']
+      ];
+      linesCache = items.map(function (it) { return it[0] + '：' + it[1]; });
+      statsEl.innerHTML = items.map(function (it) {
+        return '<div class="stat"><b>' + esc(it[1]) + '</b><span>' + esc(it[0]) + '</span></div>';
+      }).join('');
+    }
+
+    input.addEventListener('input', debounce(update, 80));
+    $('#textClear').addEventListener('click', function () {
+      input.value = '';
+      update();
+      input.focus();
+    });
+    $('#textCopyStats').addEventListener('click', function () {
+      copy(linesCache.join('\n'));
+    });
+
+    input.value = '小工具箱是一个纯前端页面，所有计算都在你的浏览器里完成，数据不会上传到任何服务器。\n\nThe toolbox includes 8 handy utilities. Try them out!';
+    update();
+  })();
+
+  /* ================= 5. 颜色 ================= */
+  (function initColor() {
+    var swatch = $('#colorSwatch');
+    var swatchHex = $('#swatchHex');
+    var picker = $('#colorPicker');
+    var hexInput = $('#colorHex');
+    var valuesEl = $('#colorValues');
+    var paletteEl = $('#colorPalette');
+    var contrastEl = $('#colorContrast');
+    var color = { r: 91, g: 91, b: 214 };
+
+    function toHex2(n) { return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0'); }
+    function hexOf(c) {
+      return '#' + toHex2(c.r) + toHex2(c.g) + toHex2(c.b);
+    }
+    function parseHex(value) {
+      var h = String(value).trim().replace(/^#/, '');
+      if (/^[0-9a-f]{3}$/i.test(h)) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      if (/^[0-9a-f]{8}$/i.test(h)) h = h.slice(0, 6);
+      if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16)
+      };
+    }
+    function rgbToHsl(c) {
+      var r = c.r / 255, g = c.g / 255, b = c.b / 255;
+      var max = Math.max(r, g, b), min = Math.min(r, g, b);
+      var h = 0, s = 0, l = (max + min) / 2;
+      var d = max - min;
+      if (d !== 0) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+      }
+      return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+    }
+    function rgbToCmyk(c) {
+      var r = c.r / 255, g = c.g / 255, b = c.b / 255;
+      var k = 1 - Math.max(r, g, b);
+      if (k >= 1) return { c: 0, m: 0, y: 0, k: 100 };
+      var d = 1 - k;
+      return {
+        c: Math.round((1 - r - k) / d * 100),
+        m: Math.round((1 - g - k) / d * 100),
+        y: Math.round((1 - b - k) / d * 100),
+        k: Math.round(k * 100)
+      };
+    }
+    function relLum(c) {
+      var f = function (v) {
+        v = v / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    }
+    function contrast(a, b) {
+      var l1 = relLum(a), l2 = relLum(b);
+      var hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+      return (hi + 0.05) / (lo + 0.05);
+    }
+    function mix(a, b, t) {
+      return {
+        r: Math.round(a.r + (b.r - a.r) * t),
+        g: Math.round(a.g + (b.g - a.g) * t),
+        b: Math.round(a.b + (b.b - a.b) * t)
+      };
+    }
+
+    function render() {
+      var hex = hexOf(color);
+      var hsl = rgbToHsl(color);
+      var cmyk = rgbToCmyk(color);
+      var white = { r: 255, g: 255, b: 255 };
+      var black = { r: 0, g: 0, b: 0 };
+      var onWhite = contrast(color, white);
+      var onBlack = contrast(color, black);
+      var textOnSwatch = onBlack >= onWhite ? '#000000' : '#ffffff';
+
+      swatch.style.background = hex;
+      swatch.style.color = textOnSwatch;
+      swatchHex.textContent = hex.toUpperCase();
+      contrastEl.textContent = '推荐文字色：' + (textOnSwatch === '#000000' ? '黑色' : '白色') +
+        ' · 与白色 ' + onWhite.toFixed(2) + ':1 · 与黑色 ' + onBlack.toFixed(2) + ':1';
+
+      var values = [
+        ['HEX', hex.toUpperCase()],
+        ['RGB', 'rgb(' + color.r + ', ' + color.g + ', ' + color.b + ')'],
+        ['HSL', 'hsl(' + hsl.h + ', ' + hsl.s + '%, ' + hsl.l + '%)'],
+        ['CMYK', cmyk.c + ' / ' + cmyk.m + ' / ' + cmyk.y + ' / ' + cmyk.k]
+      ];
+      valuesEl.innerHTML = values.map(function (v) {
+        return '<button type="button" class="color-val" data-value="' + esc(v[1]) + '">' +
+          '<span>' + esc(v[0]) + '</span><code>' + esc(v[1]) + '</code></button>';
+      }).join('');
+
+      var shades = [];
+      for (var i = 5; i >= 1; i -= 1) shades.push(mix(color, black, i * 0.15));
+      shades.push({ r: color.r, g: color.g, b: color.b });
+      for (var j = 1; j <= 5; j += 1) shades.push(mix(color, white, j * 0.15));
+      paletteEl.innerHTML = shades.map(function (c) {
+        var h = hexOf(c);
+        return '<button type="button" data-apply="' + h + '" style="background:' + h + '" title="使用 ' + h.toUpperCase() + '" aria-label="使用颜色 ' + h + '"></button>';
+      }).join('');
+    }
+
+    function setColor(next, source) {
+      color = next;
+      var hex = hexOf(next);
+      picker.value = hex;
+      if (source !== 'hex') hexInput.value = hex.toUpperCase();
+      render();
+    }
+
+    picker.addEventListener('input', function () {
+      var c = parseHex(picker.value);
+      if (c) setColor(c, 'picker');
+    });
+    hexInput.addEventListener('input', function () {
+      var c = parseHex(hexInput.value);
+      if (c) setColor(c, 'hex');
+    });
+    hexInput.addEventListener('blur', function () {
+      if (!parseHex(hexInput.value)) hexInput.value = hexOf(color).toUpperCase();
+    });
+    paletteEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-apply]');
+      if (!b) return;
+      var c = parseHex(b.dataset.apply);
+      if (c) setColor(c, 'palette');
+    });
+
+    render();
+  })();
+
+  /* ================= 6. 密码 ================= */
+  (function initPassword() {
+    var valueEl = $('#pwdValue');
+    var bar = $('#pwdBar');
+    var hint = $('#pwdHint');
+    var lengthEl = $('#pwdLen');
+    var lengthOut = $('#pwdLenOut');
+    var lower = $('#pwdLower');
+    var upper = $('#pwdUpper');
+    var digit = $('#pwdDigit');
+    var symbol = $('#pwdSymbol');
+    var noAmbiguous = $('#pwdNoAmbiguous');
+    var SETS = {
+      lower: 'abcdefghijklmnopqrstuvwxyz',
+      upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+      digit: '0123456789',
+      symbol: '!@#$%^&*()-_=+[]{};:,.?/'
+    };
+    var AMBIGUOUS = '0O1lI|`\'"~';
+    var LEVELS = [
+      { label: '弱', color: '#e5484d', max: 40 },
+      { label: '一般', color: '#e8a33d', max: 64 },
+      { label: '强', color: '#2f9e44', max: 96 },
+      { label: '极强', color: '#0a8f62', max: Infinity }
+    ];
+
+    function randomInt(max) {
+      if (max <= 0) return 0;
+      var limit = Math.floor(4294967296 / max) * max;
+      var buf = new Uint32Array(1);
+      var x;
+      do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limit);
+      return x % max;
+    }
+
+    function generate() {
+      var len = Number(lengthEl.value);
+      lengthOut.textContent = String(len);
+
+      var groups = [];
+      if (lower.checked) groups.push(SETS.lower);
+      if (upper.checked) groups.push(SETS.upper);
+      if (digit.checked) groups.push(SETS.digit);
+      if (symbol.checked) groups.push(SETS.symbol);
+
+      if (!groups.length) {
+        valueEl.textContent = '请至少选择一种字符类型';
+        bar.style.width = '0';
+        hint.textContent = '强度 —';
+        return;
+      }
+
+      var pools = groups.map(function (g) {
+        if (!noAmbiguous.checked) return g;
+        return Array.from(g).filter(function (c) { return AMBIGUOUS.indexOf(c) === -1; }).join('');
+      }).filter(function (p) { return p.length > 0; });
+
+      var all = pools.join('');
+      var chars = pools.map(function (p) { return p[randomInt(p.length)]; });
+      while (chars.length < len) chars.push(all[randomInt(all.length)]);
+      for (var i = chars.length - 1; i > 0; i -= 1) {
+        var j = randomInt(i + 1);
+        var tmp = chars[i];
+        chars[i] = chars[j];
+        chars[j] = tmp;
+      }
+      var pwd = chars.slice(0, len).join('');
+      valueEl.textContent = pwd;
+
+      var entropy = Math.round(len * (Math.log(all.length) / Math.LN2));
+      var level = LEVELS.filter(function (l) { return entropy < l.max; })[0] || LEVELS[3];
+      bar.style.width = Math.min(100, Math.max(6, (entropy / 120) * 100)) + '%';
+      bar.style.background = level.color;
+      hint.textContent = '强度：' + level.label + ' · 约 ' + entropy + ' bit 熵值 · 字符集 ' + all.length + ' 个';
+    }
+
+    lengthEl.addEventListener('input', generate);
+    [lower, upper, digit, symbol, noAmbiguous].forEach(function (el) {
+      el.addEventListener('change', generate);
+    });
+    $('#pwdRegen').addEventListener('click', generate);
+    $('#pwdCopy').addEventListener('click', function () {
+      var txt = valueEl.textContent;
+      if (txt && txt !== '—' && txt.indexOf('请至少选择') !== 0) copy(txt);
+    });
+
+    generate();
+  })();
+
+  /* ================= 7. URL ================= */
+  (function initUrl() {
+    var input = $('#urlInput');
+    var output = $('#urlOutput');
+    var status = $('#urlStatus');
+    var plus = $('#urlPlus');
+    var inLabel = $('#urlInLabel');
+    var outLabel = $('#urlOutLabel');
+    var mode = 'encode';
+
+    function syncLabels() {
+      var encoding = mode === 'encode';
+      inLabel.textContent = encoding ? '原文' : '编码后文本';
+      outLabel.textContent = encoding ? '编码结果' : '解码结果';
+      input.placeholder = encoding ? '要编码的文本或参数值…' : '粘贴要解码的内容…';
+      $$('#urlMode button').forEach(function (b) {
+        var on = b.dataset.mode === mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+
+    function update() {
+      var raw = input.value;
+      if (!raw) {
+        output.value = '';
+        setStatus(status, '', '等待输入…');
+        return;
+      }
+      try {
+        var out;
+        if (mode === 'encode') {
+          out = encodeURIComponent(raw);
+          if (plus.checked) out = out.replace(/%20/g, '+');
+        } else {
+          var s = plus.checked ? raw.replace(/\+/g, ' ') : raw;
+          out = decodeURIComponent(s);
+        }
+        output.value = out;
+        setStatus(status, 'ok', '✓ ' + (mode === 'encode' ? '编码' : '解码') + '完成 · 输入 ' + raw.length + ' 字符 · 输出 ' + out.length + ' 字符');
+      } catch (err) {
+        output.value = '';
+        setStatus(status, 'err', '✕ 解码失败：输入包含无效的百分号编码（% 后需要两位十六进制数）');
+      }
+    }
+
+    function setMode(next) {
+      mode = next;
+      syncLabels();
+      update();
+    }
+
+    $$('#urlMode button').forEach(function (b) {
+      b.addEventListener('click', function () { setMode(b.dataset.mode); });
+    });
+    input.addEventListener('input', debounce(update, 120));
+    plus.addEventListener('change', update);
+    $('#urlCopy').addEventListener('click', function () { copy(output.value); });
+    $('#urlSwap').addEventListener('click', function () {
+      if (!output.value) return;
+      input.value = output.value;
+      setMode(mode === 'encode' ? 'decode' : 'encode');
+    });
+    $('#urlClear').addEventListener('click', function () {
+      input.value = '';
+      update();
+      input.focus();
+    });
+
+    /* URL 解析 */
+    var parseInput = $('#urlParse');
+    var partsEl = $('#urlParts');
+    var queryEl = $('#urlQuery');
+    var PREFILL = 'https://example.com/search?q=小工具&page=2#结果';
+
+    function parseUrl() {
+      var raw = parseInput.value.trim();
+      if (!raw) {
+        partsEl.innerHTML = kvRow('提示', '输入完整 URL，例如 https://example.com/path?q=1', false);
+        queryEl.innerHTML = kvRow('提示', '解析后显示查询参数', false);
+        return;
+      }
+      var u = null;
+      var autoScheme = false;
+      try { u = new URL(raw); }
+      catch (e1) {
+        try { u = new URL('https://' + raw); autoScheme = true; }
+        catch (e2) { u = null; }
+      }
+      if (!u) {
+        partsEl.innerHTML = kvRow('状态', '无法解析这个 URL', false);
+        queryEl.innerHTML = kvRow('提示', '请检查 URL 格式', false);
+        return;
+      }
+      var rows = [
+        ['协议', u.protocol],
+        ['主机', u.hostname],
+        ['端口', u.port || '默认'],
+        ['路径', u.pathname || '/'],
+        ['查询串', u.search || '（无）'],
+        ['锚点', u.hash || '（无）'],
+        ['源', u.origin]
+      ];
+      if (autoScheme) rows.push(['说明', '原输入缺少协议，已按 https 补全']);
+      partsEl.innerHTML = rows.map(function (r) {
+        return kvRow(r[0], r[1], r[0] !== '说明');
+      }).join('');
+
+      var params = Array.from(u.searchParams);
+      if (!params.length) {
+        queryEl.innerHTML = kvRow('提示', '这个 URL 没有查询参数', false);
+      } else {
+        queryEl.innerHTML = params.map(function (p) {
+          return kvRow(p[0], p[1]);
+        }).join('');
+      }
+    }
+
+    parseInput.addEventListener('input', debounce(parseUrl, 150));
+    parseInput.value = PREFILL;
+    parseUrl();
+
+    input.value = 'https://example.com/搜索?q=小工具 工具箱&page=2';
+    syncLabels();
+    update();
+  })();
+
+  /* ================= 8. UUID ================= */
+  (function initUuid() {
+    var listEl = $('#uuidList');
+    var countEl = $('#uuidCount');
+    var upper = $('#uuidUpper');
+    var noHyphen = $('#uuidNoHyphen');
+    var current = [];
+
+    function uuidv4() {
+      if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+      var b = crypto.getRandomValues(new Uint8Array(16));
+      b[6] = (b[6] & 0x0f) | 0x40;
+      b[8] = (b[8] & 0x3f) | 0x80;
+      var hex = Array.prototype.map.call(b, function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+      return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+
+    function format(u) {
+      var s = u;
+      if (noHyphen.checked) s = s.replace(/-/g, '');
+      if (upper.checked) s = s.toUpperCase();
+      return s;
+    }
+
+    function generate() {
+      var count = Math.max(1, Math.min(50, parseInt(countEl.value, 10) || 1));
+      countEl.value = String(count);
+      current = [];
+      for (var i = 0; i < count; i += 1) current.push(format(uuidv4()));
+      var copyIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      listEl.innerHTML = current.map(function (u) {
+        return '<button type="button" class="uuid-row" data-value="' + esc(u) + '" title="点击复制">' +
+          '<span>' + esc(u) + '</span>' + copyIcon + '</button>';
+      }).join('');
+    }
+
+    $('#uuidGen').addEventListener('click', generate);
+    countEl.addEventListener('change', generate);
+    upper.addEventListener('change', generate);
+    noHyphen.addEventListener('change', generate);
+    $('#uuidCopyAll').addEventListener('click', function () {
+      copy(current.join('\n'));
+    });
+
+    generate();
+  })();
+
+  /* ================= 初始化当前工具 ================= */
+  var hashTool = (location.hash || '').slice(1);
+  var savedTool = null;
+  try { savedTool = localStorage.getItem('toolbox-tool'); } catch (e) {}
+  var initialTool = hashTool;
+  if (!navItems.some(function (b) { return b.dataset.tool === initialTool; })) {
+    initialTool = navItems.some(function (b) { return b.dataset.tool === savedTool; }) ? savedTool : 'json';
+  }
+  activateTool(initialTool, false);
+})();
+</script>
+</body>
+</html>
